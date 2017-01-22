@@ -31,6 +31,11 @@
         <item name="android:layout_height">40dp</item>
     </style>
 
+    <style name="AvatarXXLarge">
+        <item name="android:layout_width">64dp</item>
+        <item name="android:layout_height">64dp</item>
+    </style>
+
     <style name="AvatarLarge">
         <item name="android:layout_width">32dp</item>
         <item name="android:layout_height">32dp</item>

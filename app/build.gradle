@@ -60,4 +60,5 @@ dependencies {
 
     //Self compiled .aar version of wishlist
     compile(name: 'lib', ext: 'aar')
+    compile 'de.hdodenhof:circleimageview:2.1.0'
 }

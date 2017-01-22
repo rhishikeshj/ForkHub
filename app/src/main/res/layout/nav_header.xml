@@ -16,7 +16,7 @@
 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="110dp"
+    android:layout_height="164dp"
     android:background="@color/background_id">
 
     <RelativeLayout
@@ -26,9 +26,9 @@
         android:background="?clickableBackground"
         android:orientation="vertical">
 
-        <ImageView
+        <de.hdodenhof.circleimageview.CircleImageView
             android:id="@+id/avatar"
-            style="@style/AvatarXLarge"
+            style="@style/AvatarXXLarge"
             android:layout_margin="16dp" />
 
         <TextView
