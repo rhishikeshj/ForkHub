@@ -24,6 +24,8 @@ import static android.content.Intent.CATEGORY_BROWSABLE;
 import static android.text.InputType.TYPE_CLASS_TEXT;
 import static android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD;
 import static android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD;
+import static android.text.TextUtils.isEmpty;
+import static android.util.Patterns.EMAIL_ADDRESS;
 import static android.view.KeyEvent.ACTION_DOWN;
 import static android.view.KeyEvent.KEYCODE_ENTER;
 import static android.view.inputmethod.EditorInfo.IME_ACTION_DONE;
@@ -70,22 +72,30 @@ import com.github.mobile.ui.TextWatcherAdapter;
 import com.github.mobile.ui.roboactivities.RoboActionBarAccountAuthenticatorActivity;
 import com.github.mobile.util.ToastUtils;
 import com.google.inject.Inject;
+import com.jakewharton.rxbinding.widget.RxTextView;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import org.eclipse.egit.github.core.User;
 import org.eclipse.egit.github.core.client.GitHubClient;
 import org.eclipse.egit.github.core.service.OAuthService;
 import org.eclipse.egit.github.core.service.UserService;
 
+import hu.akarnokd.rxjava.interop.RxJavaInterop;
+import io.reactivex.Flowable;
+import io.reactivex.functions.BiFunction;
+import io.reactivex.subscribers.DisposableSubscriber;
 import roboguice.util.RoboAsyncTask;
 
 /**
  * Activity to login
  */
 public class LoginActivity extends RoboActionBarAccountAuthenticatorActivity {
+
+    private static final String TAG = LoginActivity.class.getName();
 
     /**
      * Auth token type parameter
@@ -98,8 +108,6 @@ public class LoginActivity extends RoboActionBarAccountAuthenticatorActivity {
     public static final String PARAM_USERNAME = "username";
 
     private static final String PARAM_CONFIRM_CREDENTIALS = "confirmCredentials";
-
-    private static final String TAG = "LoginActivity";
 
     /**
      * Sync period in seconds, currently every 8 hours
@@ -158,6 +166,12 @@ public class LoginActivity extends RoboActionBarAccountAuthenticatorActivity {
 
     private String username;
 
+    private DisposableSubscriber<Boolean> _disposableObserver = null;
+    private Flowable<CharSequence> _emailChangeObservable;
+    private Flowable<CharSequence> _passwordChangeObservable;
+    private boolean _loginEnabled;
+    private static final Pattern PASSWORD_CHECKER = Pattern.compile("(?=^.{7,}$)((?=.*\\d)|(?=.*\\W+))(?![.\\n])(?=.*[a-z]).*$");
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -189,22 +203,12 @@ public class LoginActivity extends RoboActionBarAccountAuthenticatorActivity {
             loginText.setFocusable(false);
         }
 
-        TextWatcher watcher = new TextWatcherAdapter() {
-
-            @Override
-            public void afterTextChanged(Editable gitDirEditText) {
-                updateEnablement();
-            }
-        };
-        loginText.addTextChangedListener(watcher);
-        passwordText.addTextChangedListener(watcher);
-
         passwordText.setOnKeyListener(new OnKeyListener() {
 
             @Override
             public boolean onKey(View v, int keyCode, KeyEvent event) {
                 if (event != null && ACTION_DOWN == event.getAction()
-                        && keyCode == KEYCODE_ENTER && loginEnabled()) {
+                        && keyCode == KEYCODE_ENTER && _loginEnabled) {
                     handleLogin();
                     return true;
                 } else
@@ -217,7 +221,7 @@ public class LoginActivity extends RoboActionBarAccountAuthenticatorActivity {
             @Override
             public boolean onEditorAction(TextView v, int actionId,
                     KeyEvent event) {
-                if (actionId == IME_ACTION_DONE && loginEnabled()) {
+                if (actionId == IME_ACTION_DONE && _loginEnabled) {
                     handleLogin();
                     return true;
                 }
@@ -243,9 +247,19 @@ public class LoginActivity extends RoboActionBarAccountAuthenticatorActivity {
             }
         });
 
-        loginText.setAdapter(new ArrayAdapter<String>(this,
+        loginText.setAdapter(new ArrayAdapter<>(this,
                 android.R.layout.simple_dropdown_item_1line,
                 getEmailAddresses()));
+
+        _emailChangeObservable =
+                RxJavaInterop.toV2Flowable(RxTextView
+                .textChanges(loginText)
+                .skip(1));
+        _passwordChangeObservable = RxJavaInterop.toV2Flowable(RxTextView
+                .textChanges(passwordText)
+                .skip(1));
+        _combineLatestEvents();
+
     }
 
     @Override
@@ -267,14 +281,11 @@ public class LoginActivity extends RoboActionBarAccountAuthenticatorActivity {
         updateEnablement();
     }
 
-    private boolean loginEnabled() {
-        return !TextUtils.isEmpty(loginText.getText())
-                && !TextUtils.isEmpty(passwordText.getText());
-    }
 
     private void updateEnablement() {
-        if (loginItem != null)
-            loginItem.setEnabled(loginEnabled());
+        if (loginItem != null) {
+            loginItem.setEnabled(_loginEnabled);
+        }
     }
 
     @Override
@@ -486,4 +497,64 @@ public class LoginActivity extends RoboActionBarAccountAuthenticatorActivity {
         else
             ToastUtils.show(LoginActivity.this, e, R.string.code_authentication_failed);
     }
+
+
+    private void _combineLatestEvents() {
+
+        _disposableObserver = new DisposableSubscriber<Boolean>() {
+            @Override
+            public void onNext(Boolean formValid) {
+                if (formValid) {
+                    _loginEnabled = true;
+                    if (loginItem != null) {
+                        loginItem.setEnabled(true);
+                    }
+                }
+                else {
+                    _loginEnabled = false;
+                    if (loginItem != null) {
+                        loginItem.setEnabled(false);
+                    }
+                }
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                Log.e(TAG, "Error in form validation : " + e);
+            }
+
+            @Override
+            public void onComplete() {
+                Log.d(TAG, "Form inputs complete");
+            }
+        };
+
+        Flowable.combineLatest(
+                _emailChangeObservable,
+                _passwordChangeObservable,
+                new BiFunction<CharSequence, CharSequence, Boolean>() {
+            public Boolean apply(CharSequence newEmail, CharSequence newPassword) {
+                String email = newEmail.toString();
+                String password = newPassword.toString();
+
+                boolean emailValid = !isEmpty(email);
+                if (emailValid && email.contains("@")) {
+                    emailValid = EMAIL_ADDRESS.matcher(email).matches();
+                }
+                if (!emailValid) {
+                    loginText.setError("Invalid Email!");
+                }
+
+                boolean passValid = !isEmpty(password)
+                        && PASSWORD_CHECKER.matcher(password).matches();
+
+                if (!passValid) {
+                    passwordText.setError("Invalid Password!");
+                }
+
+                return emailValid && passValid;
+            }
+        }).subscribe(_disposableObserver);
+    }
+
 }
