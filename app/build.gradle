@@ -12,7 +12,7 @@ android {
     defaultConfig {
         applicationId 'jp.forkhub'
         minSdkVersion 19
-        targetSdkVersion 23
+        targetSdkVersion 22
         versionCode 1020600
         versionName '1.2.6'
     }
