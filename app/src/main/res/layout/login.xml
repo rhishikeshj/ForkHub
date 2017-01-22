@@ -24,29 +24,22 @@
         android:id="@+id/toolbar"
         style="@style/Toolbar" />
 
-    <TextView
-        android:id="@+id/tv_signup"
-        style="@style/SubtitleText"
-        android:layout_width="match_parent"
-        android:background="@drawable/sign_up_background"
-        android:gravity="center"
-        android:padding="5dp"
-        android:textColor="@color/sign_up_text"
-        android:textColorLink="@color/sign_up_text_link" />
-
-    <ScrollView
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1">
+    <ImageView
+        android:id="@+id/iv_github_logo"
+        android:layout_height="200dp"
+        android:layout_width="wrap_content"
+        android:src="@mipmap/github_logo"
+        android:scaleType="fitCenter"
+        android:paddingTop="30dp"/>
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingBottom="10dp"
-            android:paddingLeft="15dp"
-            android:paddingRight="15dp"
-            android:paddingTop="5dp">
+            android:paddingBottom="16dp"
+            android:paddingLeft="16dp"
+            android:paddingRight="16dp"
+            android:paddingTop="16dp">
 
             <android.support.design.widget.TextInputLayout
                 android:layout_width="match_parent"
@@ -89,6 +82,13 @@
                 android:textColor="@color/text" />
 
         </LinearLayout>
-    </ScrollView>
 
+    <TextView
+        android:id="@+id/tv_signup"
+        style="@style/SubtitleText"
+        android:layout_width="match_parent"
+        android:gravity="center"
+        android:padding="5dp"
+        android:textColor="@color/sign_up_text"
+        android:textColorLink="@color/sign_up_text_link" />
 </LinearLayout>
