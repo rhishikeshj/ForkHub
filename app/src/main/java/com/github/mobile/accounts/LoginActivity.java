@@ -97,7 +97,7 @@ public class LoginActivity extends RoboActionBarAccountAuthenticatorActivity {
      */
     public static final String PARAM_USERNAME = "username";
 
-    private static final String PARAM_CONFIRMCREDENTIALS = "confirmCredentials";
+    private static final String PARAM_CONFIRM_CREDENTIALS = "confirmCredentials";
 
     private static final String TAG = "LoginActivity";
 
@@ -176,7 +176,7 @@ public class LoginActivity extends RoboActionBarAccountAuthenticatorActivity {
         username = intent.getStringExtra(PARAM_USERNAME);
         authTokenType = intent.getStringExtra(PARAM_AUTHTOKEN_TYPE);
         requestNewAccount = username == null;
-        confirmCredentials = intent.getBooleanExtra(PARAM_CONFIRMCREDENTIALS,
+        confirmCredentials = intent.getBooleanExtra(PARAM_CONFIRM_CREDENTIALS,
                 false);
 
         TextView signupText = finder.find(R.id.tv_signup);
@@ -289,8 +289,9 @@ public class LoginActivity extends RoboActionBarAccountAuthenticatorActivity {
      * Authenticate login & password
      */
     public void handleLogin() {
-        if (requestNewAccount)
+        if (requestNewAccount) {
             username = loginText.getText().toString();
+        }
         password = passwordText.getText().toString();
 
         final AlertDialog dialog = LightProgressDialog.create(this,
@@ -300,8 +301,9 @@ public class LoginActivity extends RoboActionBarAccountAuthenticatorActivity {
 
             @Override
             public void onCancel(DialogInterface dialog) {
-                if (authenticationTask != null)
+                if (authenticationTask != null) {
                     authenticationTask.cancel(true);
+                }
             }
         });
         dialog.show();
@@ -334,8 +336,9 @@ public class LoginActivity extends RoboActionBarAccountAuthenticatorActivity {
                     } catch (IOException e) {
                         Log.d(TAG, "Exception loading organizations", e);
                     }
-                } else
+                } else {
                     accountManager.setPassword(account, password);
+                }
 
                 return user;
             }
@@ -352,8 +355,9 @@ public class LoginActivity extends RoboActionBarAccountAuthenticatorActivity {
             public void onSuccess(User user) {
                 dialog.dismiss();
 
-                if (user != null)
+                if (user != null) {
                     onAuthenticationResult(true);
+                }
             }
         };
         authenticationTask.execute();
