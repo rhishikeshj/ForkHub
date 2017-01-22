@@ -15,20 +15,29 @@
  */
 package com.github.mobile.ui.user;
 
+import android.Manifest;
+import android.accounts.Account;
+import android.accounts.AccountManager;
+import android.app.Activity;
 import android.app.SearchManager;
 import android.content.ComponentName;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.design.widget.NavigationView;
 import android.support.v4.app.LoaderManager.LoaderCallbacks;
+import android.support.v4.content.ContextCompat;
 import android.support.v4.content.Loader;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.view.MenuItemCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.widget.SearchView;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
@@ -40,6 +49,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.github.mobile.R;
+import com.github.mobile.accounts.AccountConstants;
 import com.github.mobile.accounts.AccountUtils;
 import com.github.mobile.core.repo.StarForkHubTask;
 import com.github.mobile.core.user.UserComparator;
@@ -310,6 +320,39 @@ public class HomeActivity extends TabPagerActivity<HomePagerAdapter> implements
                 UriLauncherActivity.launchUri(this,
                         Uri.parse("https://github.com/jonan/ForkHub/issues"));
                 break;
+            case R.id.navigation_logout:
+                navigationDrawer.closeDrawer(GravityCompat.START);
+                final Activity thisActivity = this;
+                AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                builder.setMessage(R.string.logout_confirmation_message).setTitle(R.string.logout_confirmation_title);
+                builder.setPositiveButton(R.string.logout_yes, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int id) {
+                        AccountManager accountManager = AccountManager.get(thisActivity);
+                        int permissionCheck = ContextCompat.checkSelfPermission(thisActivity, Manifest.permission.GET_ACCOUNTS);
+                        if (permissionCheck == PackageManager.PERMISSION_GRANTED) {
+                            Account[] accounts = accountManager.getAccounts();
+                            for(int i = 0; i < accounts.length; i++) {
+                                Account account = accounts[i];
+                                if(account.type.equals(AccountConstants.ACCOUNT_TYPE)) {
+                                    if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+                                        accountManager.removeAccount(account, thisActivity, null, null);
+                                    } else {
+                                        // Using the deprecated method for older API versions
+                                        accountManager.removeAccount(account, null, null);
+                                    }
+                                    finish();
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                });
+                builder.setNegativeButton(R.string.cancel, null);
+                AlertDialog logoutAlertDialog = builder.create();
+                logoutAlertDialog.show();
+                break;
+
         }
 
         return false;

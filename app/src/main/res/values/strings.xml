@@ -160,6 +160,10 @@
     <string name="dashboard_issues_title">Issue Dashboard</string>
     <string name="bookmarks">Bookmarks</string>
     <string name="report_issue">Report an issue</string>
+    <string name="logout">Logout</string>
+    <string name="logout_confirmation_title">Are you sure you want to Logout?</string>
+    <string name="logout_confirmation_message">Please restart the app once you log out.</string>
+    <string name="logout_yes">Yes</string>
     <string name="gists_title">Gists</string>
     <string name="issue_title">Issue #</string>
     <string name="pull_request_title">Pull Request #</string>
