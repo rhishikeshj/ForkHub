@@ -21,6 +21,7 @@ android {
         exclude 'META-INF/DEPENDENCIES'
         exclude 'META-INF/LICENSE'
         exclude 'META-INF/NOTICE'
+        pickFirst  'META-INF/rxjava.properties'
     }
 
     compileOptions {
@@ -61,4 +62,12 @@ dependencies {
     //Self compiled .aar version of wishlist
     compile(name: 'lib', ext: 'aar')
     compile 'de.hdodenhof:circleimageview:2.1.0'
+
+    compile 'io.reactivex.rxjava2:rxandroid:2.0.1'
+    compile 'io.reactivex.rxjava2:rxjava:2.0.1'
+    compile 'com.jakewharton.rxbinding:rxbinding:0.2.0'
+
+    // libs like rxbinding haven't been ported to RxJava 2.x yet, so this helps
+    compile "com.github.akarnokd:rxjava2-interop:0.6.1"
+
 }
