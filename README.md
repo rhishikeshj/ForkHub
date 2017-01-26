@@ -36,6 +36,16 @@ Any contributions, large or small, major features, bug fixes, additional
 language translations, unit/integration tests are welcomed and appreciated
 but will be thoroughly reviewed and discussed.
 
+### Code structure
+
+#### Login
+
+The login screen is created via the Login Activity inside the _com.github.mobile.accounts_ namespace. The layout used is the _R.layout.login_.
+The login flow uses Android Accounts services to create a Github account on the Android device on behalf of the Forkhub app.
+For form validation, the Login activity uses the _combineLatest_ operator from RxJava to react to input events from the EditText and perform validation.
+The *_loginEnabled* boolean variable keeps track of whether the login button and action are enabled or not.
+The AccountAuthenticator mechanism required by Android Accounts service is implemented by the _com.github.mobile.accounts.AccountAuthenticator_ and _com.github.mobile.accounts.AccountAuthenticatorService_ classes.
+
 ## License
 
 * [Apache Version 2.0](http://www.apache.org/licenses/LICENSE-2.0.html)
