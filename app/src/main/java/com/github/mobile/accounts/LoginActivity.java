@@ -44,10 +44,10 @@ import android.content.DialogInterface.OnCancelListener;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.widget.Toolbar;
-import android.text.Editable;
+
 import android.text.Html;
 import android.text.TextUtils;
-import android.text.TextWatcher;
+
 import android.text.method.LinkMovementMethod;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -68,7 +68,7 @@ import com.github.kevinsawicki.wishlist.ViewFinder;
 import com.github.mobile.R;
 import com.github.mobile.persistence.AccountDataManager;
 import com.github.mobile.ui.LightProgressDialog;
-import com.github.mobile.ui.TextWatcherAdapter;
+
 import com.github.mobile.ui.roboactivities.RoboActionBarAccountAuthenticatorActivity;
 import com.github.mobile.util.ToastUtils;
 import com.google.inject.Inject;
@@ -77,6 +77,7 @@ import com.jakewharton.rxbinding.widget.RxTextView;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Callable;
 import java.util.regex.Pattern;
 
 import org.eclipse.egit.github.core.User;
@@ -86,7 +87,14 @@ import org.eclipse.egit.github.core.service.UserService;
 
 import hu.akarnokd.rxjava.interop.RxJavaInterop;
 import io.reactivex.Flowable;
+import io.reactivex.Observable;
+import io.reactivex.ObservableSource;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.disposables.CompositeDisposable;
+import io.reactivex.exceptions.Exceptions;
 import io.reactivex.functions.BiFunction;
+import io.reactivex.observers.DisposableObserver;
+import io.reactivex.schedulers.Schedulers;
 import io.reactivex.subscribers.DisposableSubscriber;
 import roboguice.util.RoboAsyncTask;
 
@@ -171,6 +179,8 @@ public class LoginActivity extends RoboActionBarAccountAuthenticatorActivity {
     private Flowable<CharSequence> _passwordChangeObservable;
     private boolean _loginEnabled;
     private static final Pattern PASSWORD_CHECKER = Pattern.compile("(?=^.{7,}$)((?=.*\\d)|(?=.*\\W+))(?![.\\n])(?=.*[a-z]).*$");
+    private AlertDialog _loginDialog;
+    private CompositeDisposable _disposables = new CompositeDisposable();
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -281,6 +291,12 @@ public class LoginActivity extends RoboActionBarAccountAuthenticatorActivity {
         updateEnablement();
     }
 
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        _disposables.clear();
+    }
+
 
     private void updateEnablement() {
         if (loginItem != null) {
@@ -305,73 +321,30 @@ public class LoginActivity extends RoboActionBarAccountAuthenticatorActivity {
         }
         password = passwordText.getText().toString();
 
-        final AlertDialog dialog = LightProgressDialog.create(this,
+        DisposableObserver<User> d = _getLoginObserver();
+
+        _loginDialog = LightProgressDialog.create(this,
                 R.string.login_activity_authenticating);
-        dialog.setCancelable(true);
-        dialog.setOnCancelListener(new OnCancelListener() {
+        _loginDialog.setCancelable(true);
+        _loginDialog.setOnCancelListener(new OnCancelListener() {
 
             @Override
             public void onCancel(DialogInterface dialog) {
-                if (authenticationTask != null) {
-                    authenticationTask.cancel(true);
-                }
+                _disposables.clear();
             }
         });
-        dialog.show();
+        _loginDialog.show();
 
-        authenticationTask = new RoboAsyncTask<User>(this) {
-
+        Observable.defer(new Callable<ObservableSource<User>>() {
             @Override
-            public User call() throws Exception {
-                GitHubClient client = new TwoFactorAuthClient();
-                client.setCredentials(username, password);
+            public ObservableSource<User> call() throws Exception {
+                return Observable.just(performLoginWrapper());
 
-                User user;
-                try {
-                    user = new UserService(client).getUser();
-                } catch (TwoFactorAuthException e) {
-                    if (e.twoFactorAuthType == TWO_FACTOR_AUTH_TYPE_SMS)
-                        sendSmsOtpCode(new OAuthService(client));
-                    openTwoFactorAuthActivity();
-
-                    return null;
-                }
-
-                Account account = new Account(user.getLogin(), ACCOUNT_TYPE);
-                if (requestNewAccount) {
-                    accountManager
-                            .addAccountExplicitly(account, password, null);
-                    configureSyncFor(account);
-                    try {
-                        new AccountLoader(LoginActivity.this).call();
-                    } catch (IOException e) {
-                        Log.d(TAG, "Exception loading organizations", e);
-                    }
-                } else {
-                    accountManager.setPassword(account, password);
-                }
-
-                return user;
             }
-
-            @Override
-            protected void onException(Exception e) throws RuntimeException {
-                dialog.dismiss();
-
-                Log.d(TAG, "Exception requesting authenticated user", e);
-                handleLoginException(e);
-            }
-
-            @Override
-            public void onSuccess(User user) {
-                dialog.dismiss();
-
-                if (user != null) {
-                    onAuthenticationResult(true);
-                }
-            }
-        };
-        authenticationTask.execute();
+        }).subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(d);
+        _disposables.add(d);
     }
 
     @Override
@@ -555,6 +528,73 @@ public class LoginActivity extends RoboActionBarAccountAuthenticatorActivity {
                 return emailValid && passValid;
             }
         }).subscribe(_disposableObserver);
+    }
+
+    private User performLoginWrapper () {
+        try {
+            return performLoginAction();
+        } catch (Exception e) {
+            Exceptions.propagate(e);
+        }
+        return null;
+    }
+
+    private User performLoginAction () throws Exception {
+        GitHubClient client = new TwoFactorAuthClient();
+        client.setCredentials(username, password);
+
+        User user;
+        try {
+            user = new UserService(client).getUser();
+        } catch (TwoFactorAuthException e) {
+            if (e.twoFactorAuthType == TWO_FACTOR_AUTH_TYPE_SMS) {
+                sendSmsOtpCode(new OAuthService(client));
+            }
+            openTwoFactorAuthActivity();
+
+            return null;
+        }
+
+        Account account = new Account(user.getLogin(), ACCOUNT_TYPE);
+        if (requestNewAccount) {
+            accountManager
+                    .addAccountExplicitly(account, password, null);
+            configureSyncFor(account);
+            try {
+                new AccountLoader(this).call();
+            } catch (IOException e) {
+                Log.d(TAG, "Exception loading organizations", e);
+            }
+        } else {
+            accountManager.setPassword(account, password);
+        }
+
+        return user;
+    }
+
+    private DisposableObserver<User> _getLoginObserver() {
+        return new DisposableObserver<User>() {
+
+            @Override
+            public void onComplete() {
+                _loginDialog.dismiss();
+            }
+
+            @Override
+            public void onError(Throwable throwable) {
+                _loginDialog.dismiss();
+                Exception e = new Exception(throwable);
+                Log.d(TAG, "Exception requesting authenticated user", e);
+                handleLoginException(e);
+            }
+
+            @Override
+            public void onNext(User user) {
+                if (user != null) {
+                    onAuthenticationResult(true);
+                }
+            }
+        };
     }
 
 }
